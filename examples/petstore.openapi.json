@@ -1,0 +1,84 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "Petstore Sample",
+    "version": "1.0.0",
+    "description": "Sample API for trying Relay OpenAPI import"
+  },
+  "servers": [{ "url": "https://petstore3.swagger.io/api/v3" }],
+  "paths": {
+    "/pet/{petId}": {
+      "get": {
+        "tags": ["pet"],
+        "summary": "Find pet by ID",
+        "operationId": "getPetById",
+        "parameters": [
+          {
+            "name": "petId",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "integer", "format": "int64" },
+            "example": 1
+          }
+        ],
+        "responses": {
+          "200": { "description": "successful operation" }
+        }
+      }
+    },
+    "/pet/findByStatus": {
+      "get": {
+        "tags": ["pet"],
+        "summary": "Finds pets by status",
+        "operationId": "findPetsByStatus",
+        "parameters": [
+          {
+            "name": "status",
+            "in": "query",
+            "required": true,
+            "schema": { "type": "string", "enum": ["available", "pending", "sold"] },
+            "example": "available"
+          }
+        ],
+        "responses": {
+          "200": { "description": "successful operation" }
+        }
+      }
+    },
+    "/pet": {
+      "post": {
+        "tags": ["pet"],
+        "summary": "Add a new pet",
+        "operationId": "addPet",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "name": { "type": "string" },
+                  "status": { "type": "string" }
+                }
+              },
+              "example": { "name": "doggie", "status": "available" }
+            }
+          }
+        },
+        "responses": {
+          "200": { "description": "successful operation" }
+        }
+      }
+    },
+    "/store/inventory": {
+      "get": {
+        "tags": ["store"],
+        "summary": "Returns pet inventories by status",
+        "operationId": "getInventory",
+        "responses": {
+          "200": { "description": "successful operation" }
+        }
+      }
+    }
+  }
+}
