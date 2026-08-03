@@ -29,6 +29,15 @@
   --mono: 'Geist Mono', 'Cascadia Code', 'Consolas', monospace;
   --radius: 6px;
   --sidebar-w: 280px;
+  /* Key / value syntax (request KV + response JSON) — Postman-like */
+  --kv-key: #7ec8ff;
+  --kv-value: #ce9178;
+  --kv-number: #b794f6;
+  --kv-bool: #b794f6;
+  --kv-null: #b794f6;
+  --kv-punct: #d4d4d4;
+  --kv-key-bg: rgba(126, 200, 255, 0.06);
+  --kv-value-bg: rgba(206, 145, 120, 0.05);
   color-scheme: dark;
 }
 
@@ -534,6 +543,7 @@ textarea {
 .split-pane.split-vertical .meta-row,
 .split-pane.split-vertical .panel-tabs,
 .split-pane.split-vertical .request-body-editor,
+.split-pane.split-vertical .json-body-editor,
 .split-pane.split-vertical .json-viewer,
 .split-pane.split-vertical .response-body {
   max-width: 100%;
@@ -867,6 +877,77 @@ body.is-resizing-vertical * {
   overflow-wrap: anywhere;
 }
 
+.json-body-editor {
+  display: grid;
+  width: 100%;
+  min-width: 0;
+  max-width: min(1100px, 100%);
+}
+
+.json-body-editor > .json-body-highlight,
+.json-body-editor > .json-body-textarea {
+  grid-area: 1 / 1;
+  margin: 0;
+  width: 100%;
+  min-height: 220px;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-sizing: border-box;
+  font-family: var(--mono);
+  font-size: 12px;
+  line-height: 1.5;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  tab-size: 2;
+}
+
+.json-body-highlight {
+  overflow: hidden;
+  pointer-events: none;
+  color: var(--text);
+  background: var(--bg);
+  z-index: 0;
+}
+
+.json-body-textarea {
+  position: relative;
+  z-index: 1;
+  background: transparent !important;
+  color: transparent !important;
+  caret-color: var(--text);
+  resize: vertical;
+  overflow: auto;
+}
+
+.json-body-textarea::placeholder {
+  color: var(--muted);
+}
+
+.json-body-textarea::selection {
+  background: rgba(61, 139, 253, 0.35);
+  color: transparent;
+}
+
+.json-body-textarea:focus {
+  border-color: var(--accent);
+  outline: none;
+}
+
+.format-json-btn:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+.body-type-sep {
+  display: inline-block;
+  width: 1px;
+  height: 18px;
+  margin: 0 2px;
+  background: var(--border, #3a3f4b);
+  flex-shrink: 0;
+}
+
 .panel-search-slot {
   position: absolute;
   left: 50%;
@@ -1057,6 +1138,48 @@ mark.search-hit.active {
   width: 280px;
 }
 
+.kv-edit-table thead th.kv-col-key {
+  color: var(--kv-key);
+}
+
+.kv-edit-table thead th.kv-col-value {
+  color: var(--kv-value);
+}
+
+.kv-edit-table .kv-col-key {
+  background: var(--kv-key-bg);
+  border-radius: 4px 0 0 4px;
+}
+
+.kv-edit-table .kv-col-value {
+  background: var(--kv-value-bg);
+}
+
+.kv-edit-table .kv-col-key input[type='text'] {
+  color: var(--kv-key);
+  font-family: var(--mono);
+  font-weight: 550;
+}
+
+.kv-edit-table .kv-col-value input[type='text'],
+.kv-edit-table .kv-col-value input[type='password'] {
+  color: var(--kv-value);
+  font-family: var(--mono);
+}
+
+.kv-edit-table .kv-col-key input::placeholder {
+  color: color-mix(in srgb, var(--kv-key) 45%, transparent);
+}
+
+.kv-edit-table .kv-col-value input::placeholder {
+  color: color-mix(in srgb, var(--kv-value) 40%, transparent);
+}
+
+.kv-edit-table tbody tr:has(input[type='checkbox']:not(:checked)) .kv-col-key input,
+.kv-edit-table tbody tr:has(input[type='checkbox']:not(:checked)) .kv-col-value input {
+  opacity: 0.45;
+}
+
 .kv-col-type {
   width: 88px;
 }
@@ -1176,6 +1299,35 @@ mark.search-hit.active {
 
 .kv-table td {
   padding: 3px;
+}
+
+.kv-table.kv-response td {
+  padding: 7px 10px;
+  font-family: var(--mono);
+  font-size: 12px;
+  vertical-align: top;
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.kv-table.kv-response th.kv-col-key {
+  color: var(--kv-key);
+}
+
+.kv-table.kv-response th.kv-col-value {
+  color: var(--kv-value);
+}
+
+.kv-table.kv-response .kv-key {
+  color: var(--kv-key);
+  font-weight: 550;
+  background: var(--kv-key-bg);
+  border-radius: 4px;
+  white-space: nowrap;
+}
+
+.kv-table.kv-response .kv-val {
+  color: var(--kv-value);
+  word-break: break-word;
 }
 
 .hidden-headers-table input:disabled {
@@ -1407,27 +1559,28 @@ mark.search-hit.active {
 }
 
 .json-tok.json-key {
-  color: #7ec8ff;
+  color: var(--kv-key);
+  font-weight: 550;
 }
 
 .json-tok.json-string {
-  color: #ce9178;
+  color: var(--kv-value);
 }
 
 .json-tok.json-number {
-  color: #b5cea8;
+  color: var(--kv-number);
 }
 
 .json-tok.json-boolean {
-  color: #569cd6;
+  color: var(--kv-bool);
 }
 
 .json-tok.json-null {
-  color: #569cd6;
+  color: var(--kv-null);
 }
 
 .json-tok.json-punct {
-  color: var(--text-dim);
+  color: var(--kv-punct);
 }
 
 .curl-preview {
@@ -1444,6 +1597,18 @@ mark.search-hit.active {
   max-height: 420px;
   overflow: auto;
   color: var(--text);
+}
+
+.curl-import-area {
+  display: block;
+  width: 100%;
+  min-height: 220px;
+  max-width: 100%;
+  box-sizing: border-box;
+  font-family: var(--mono);
+  font-size: 12px;
+  line-height: 1.5;
+  resize: vertical;
 }
 
 .auth-form,

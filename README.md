@@ -10,7 +10,7 @@ Local-first Postman-style API client for Windows/macOS/Linux. Test APIs, organiz
 - Packs & folders with save / duplicate / delete
 - Environments with `{{variable}}` substitution (case-insensitive names)
 - Request history
-- cURL preview/copy from the current request
+- cURL preview/copy, and import from a pasted cURL command
 - Team workspaces capped at **15 members** (owner / editor / viewer)
 - OpenAPI 3 / Swagger 2 import → pack + docs viewer with Try
 - Import/Export: Relay workspace (`.relay.json`), Postman Collection v2.1, OpenAPI
@@ -70,6 +70,7 @@ Use the **Docs / Swagger** tab to:
 
 - Select an environment in the toolbar, then open **Env** to define variables (e.g. `baseURL` → `http://localhost:4000`).
 - Use `{{baseURL}}` (or `{{baseUrl}}` — matching is case-insensitive) in the URL, headers, body, and auth fields.
+- Paste a cURL into the URL field, or open **cURL → Import**, to fill method, URL, headers, auth, and body.
 - If a `{{variable}}` is missing or no environment is selected, Send shows a clear error instead of calling a bad URL.
 - Search: open the search icon in the request or response panel; **Enter** / **Shift+Enter** for next/previous match; **Esc** to close.
 - Viewers can send requests and browse; they cannot edit packs or invite members.

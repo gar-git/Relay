@@ -1,64 +1,12 @@
 import { useEffect, useMemo, useRef, type ReactNode } from 'react';
 import { findMatches } from '../lib/findMatches';
+import { tokenizeJsonLine } from '../lib/tokenizeJson';
 
 interface Props {
   text: string;
   wrap?: boolean;
   query?: string;
   activeMatchIndex?: number;
-}
-
-type TokenKind = 'key' | 'string' | 'number' | 'boolean' | 'null' | 'punct' | 'plain';
-
-interface Token {
-  kind: TokenKind;
-  value: string;
-}
-
-const TOKEN_RE =
-  /("(?:\\.|[^"\\])*")\s*:|("(?:\\.|[^"\\])*")|-?\d+(?:\.\d+)?(?:[eE][+-]?\d+)?|\b(?:true|false|null)\b|[{}\[\],:]|\s+|./g;
-
-function tokenizeLine(line: string): Token[] {
-  const tokens: Token[] = [];
-  TOKEN_RE.lastIndex = 0;
-  let match: RegExpExecArray | null;
-  while ((match = TOKEN_RE.exec(line))) {
-    const value = match[0];
-    if (/^\s+$/.test(value)) {
-      tokens.push({ kind: 'plain', value });
-      continue;
-    }
-    if (match[1] !== undefined) {
-      tokens.push({ kind: 'key', value: match[1] });
-      const suffix = value.slice(match[1].length);
-      const spaces = suffix.slice(0, -1);
-      if (spaces) tokens.push({ kind: 'plain', value: spaces });
-      tokens.push({ kind: 'punct', value: ':' });
-      continue;
-    }
-    if (match[2] !== undefined) {
-      tokens.push({ kind: 'string', value });
-      continue;
-    }
-    if (/^-?\d/.test(value)) {
-      tokens.push({ kind: 'number', value });
-      continue;
-    }
-    if (value === 'true' || value === 'false') {
-      tokens.push({ kind: 'boolean', value });
-      continue;
-    }
-    if (value === 'null') {
-      tokens.push({ kind: 'null', value });
-      continue;
-    }
-    if (/^[{}\[\],:]$/.test(value)) {
-      tokens.push({ kind: 'punct', value });
-      continue;
-    }
-    tokens.push({ kind: 'plain', value });
-  }
-  return tokens;
 }
 
 /** Split a string into segments with optional highlight ranges (line-local offsets). */
@@ -105,7 +53,7 @@ export function JsonViewer({ text, wrap = true, query = '', activeMatchIndex = 0
 
   const lines = useMemo(() => {
     const source = text || '';
-    return source.split('\n').map((line) => tokenizeLine(line));
+    return source.split('\n').map((line) => tokenizeJsonLine(line));
   }, [text]);
 
   const matches = useMemo(() => findMatches(text || '', query), [text, query]);

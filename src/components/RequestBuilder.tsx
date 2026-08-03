@@ -2,11 +2,13 @@ import { useEffect, useMemo, useRef, useState, type CSSProperties, type Ref } fr
 import type { AuthConfig, BodyType, HttpMethod, KeyValue, RequestBody } from '../lib/types';
 import { parseBulkRows, serializeBulkRows } from '../lib/bulkEdit';
 import { findMatches } from '../lib/findMatches';
-import { computeHiddenHeaders, newKv } from '../lib/utils';
+import { computeHiddenHeaders, newKv, prettyJson } from '../lib/utils';
 import { FormDataEditor } from './FormDataEditor';
+import { JsonBodyEditor } from './JsonBodyEditor';
 import { KeyValueEditor } from './KeyValueEditor';
 import { MethodSelect } from './MethodSelect';
 import { PanelSearch } from './PanelSearch';
+import { isProbablyCurl } from '../lib/parseCurl';
 
 interface Props {
   method: HttpMethod;
@@ -24,6 +26,8 @@ interface Props {
   onBody: (b: RequestBody) => void;
   onSend: () => void;
   onShowCurl: () => void;
+  /** Called when a cURL command is pasted into the URL field */
+  onPasteCurl?: (text: string) => void;
   sending: boolean;
 }
 
@@ -363,14 +367,21 @@ export function RequestBuilder(props: Props) {
           className="url-input"
           value={props.url}
           disabled={props.readOnly}
-          placeholder="https://api.example.com/v1/resource or {{baseUrl}}/users"
+          placeholder="https://api.example.com/v1/resource, {{baseUrl}}/users, or paste a cURL"
           onChange={(e) => props.onUrl(e.target.value)}
+          onPaste={(e) => {
+            const text = e.clipboardData.getData('text');
+            if (text && isProbablyCurl(text) && props.onPasteCurl) {
+              e.preventDefault();
+              props.onPasteCurl(text);
+            }
+          }}
           onKeyDown={(e) => {
             if (e.key === 'Enter') props.onSend();
           }}
         />
         <div className="request-row-actions">
-          <button type="button" onClick={props.onShowCurl} disabled={!props.url} title="View / copy as cURL">
+          <button type="button" onClick={props.onShowCurl} title="Copy or import cURL">
             cURL
           </button>
           <button type="button" className="primary" onClick={props.onSend} disabled={props.sending || !props.url}>
@@ -586,7 +597,7 @@ export function RequestBuilder(props: Props) {
 
         {tab === 'body' && (
           <div>
-            <div className="row" style={{ marginBottom: 10, flexWrap: 'wrap', gap: 8 }}>
+            <div className="row" style={{ marginBottom: 10, flexWrap: 'wrap', gap: 8, alignItems: 'center' }}>
               {(['none', 'json', 'raw', 'urlencoded', 'formdata'] as BodyType[]).map((t) => (
                 <button
                   key={t}
@@ -598,15 +609,58 @@ export function RequestBuilder(props: Props) {
                   {t === 'formdata' ? 'form-data' : t === 'urlencoded' ? 'x-www-form-urlencoded' : t}
                 </button>
               ))}
+              {(props.body.type === 'json' || props.body.type === 'raw') && (
+                <>
+                  <span className="body-type-sep" aria-hidden="true" />
+                  <button
+                    type="button"
+                    className="ghost panel-search-icon-btn format-json-btn"
+                    disabled={props.readOnly || !(props.body.raw || '').trim()}
+                    title="Format JSON"
+                    aria-label="Format JSON"
+                    onClick={() => {
+                      const raw = props.body.raw || '';
+                      const pretty = prettyJson(raw);
+                      if (pretty === raw) return;
+                      props.onBody({ ...props.body, type: 'json', raw: pretty });
+                    }}
+                  >
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                      <path
+                        d="M8 4H6a2 2 0 0 0-2 2v3.5a1.5 1.5 0 0 1-1.5 1.5A1.5 1.5 0 0 1 4 12.5V16a2 2 0 0 0 2 2h2"
+                        stroke="currentColor"
+                        strokeWidth="1.75"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      />
+                      <path
+                        d="M16 4h2a2 2 0 0 1 2 2v3.5a1.5 1.5 0 0 0 1.5 1.5A1.5 1.5 0 0 0 20 12.5V16a2 2 0 0 1-2 2h-2"
+                        stroke="currentColor"
+                        strokeWidth="1.75"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      />
+                    </svg>
+                  </button>
+                </>
+              )}
             </div>
-            {(props.body.type === 'json' || props.body.type === 'raw') && (
+            {props.body.type === 'json' && (
+              <JsonBodyEditor
+                textareaRef={bodyRef}
+                value={props.body.raw || ''}
+                disabled={props.readOnly}
+                onChange={(raw) => props.onBody({ ...props.body, raw })}
+              />
+            )}
+            {props.body.type === 'raw' && (
               <textarea
                 ref={bodyRef}
                 className="request-body-editor"
                 rows={16}
                 value={props.body.raw || ''}
                 disabled={props.readOnly}
-                placeholder={props.body.type === 'json' ? '{\n  "key": "value"\n}' : 'Raw body'}
+                placeholder="Raw body"
                 onChange={(e) => props.onBody({ ...props.body, raw: e.target.value })}
               />
             )}

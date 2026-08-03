@@ -216,18 +216,18 @@ export function ResponseViewer({ result, loading }: Props) {
             </pre>
           )
         ) : (
-          <table className="kv-table">
+          <table className="kv-table kv-response">
             <thead>
               <tr>
-                <th>Header</th>
-                <th>Value</th>
+                <th className="kv-col-key">Header</th>
+                <th className="kv-col-value">Value</th>
               </tr>
             </thead>
             <tbody>
               {filteredHeaders.map(([k, v]) => (
                   <tr key={k}>
-                    <td style={{ fontFamily: 'var(--mono)' }}>{k}</td>
-                    <td style={{ fontFamily: 'var(--mono)' }}>{v}</td>
+                    <td className="kv-key">{k}</td>
+                    <td className="kv-val">{v}</td>
                   </tr>
                 ))}
             </tbody>

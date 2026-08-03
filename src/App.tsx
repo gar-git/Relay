@@ -21,6 +21,7 @@ import {
   newKv,
   varsFromEnv,
 } from './lib/utils';
+import { parseCurl } from './lib/parseCurl';
 import { LoginScreen } from './components/LoginScreen';
 import { RequestBuilder } from './components/RequestBuilder';
 import { ResponseViewer } from './components/ResponseViewer';
@@ -96,6 +97,8 @@ export default function App() {
   const [showTeam, setShowTeam] = useState(false);
   const [showEnv, setShowEnv] = useState(false);
   const [showCurl, setShowCurl] = useState(false);
+  const [curlImportText, setCurlImportText] = useState('');
+  const [curlModalTab, setCurlModalTab] = useState<'copy' | 'import'>('copy');
   const [error, setError] = useState('');
   const [promptDialog, setPromptDialog] = useState<PromptKind | null>(null);
   const [confirmDialog, setConfirmDialog] = useState<ConfirmKind | null>(null);
@@ -741,7 +744,34 @@ export default function App() {
                   onAuth={(auth) => setDraft((d) => ({ ...d, auth }))}
                   onBody={(body) => setDraft((d) => ({ ...d, body }))}
                   onSend={send}
-                  onShowCurl={() => setShowCurl(true)}
+                  onShowCurl={() => {
+                    setCurlImportText('');
+                    setCurlModalTab('copy');
+                    setShowCurl(true);
+                  }}
+                  onPasteCurl={(text) => {
+                    try {
+                      const parsed = parseCurl(text);
+                      setDraft((d) => ({
+                        ...d,
+                        method: parsed.method,
+                        url: parsed.url,
+                        params: parsed.params,
+                        headers: parsed.headers,
+                        auth: parsed.auth,
+                        body: parsed.body,
+                        name: d.name === 'Untitled request' || !d.name ? 'From cURL' : d.name,
+                      }));
+                      setCenterTab('request');
+                      setResult(null);
+                      setError('');
+                    } catch (e) {
+                      setCurlImportText(text);
+                      setCurlModalTab('import');
+                      setShowCurl(true);
+                      setError(e instanceof Error ? e.message : String(e));
+                    }
+                  }}
                 />
               }
               second={<ResponseViewer result={result} loading={sending} />}
@@ -768,7 +798,32 @@ export default function App() {
           }}
         />
       )}
-      <CurlModal open={showCurl} curl={curlCommand} onClose={() => setShowCurl(false)} />
+      <CurlModal
+        open={showCurl}
+        curl={curlCommand}
+        initialTab={curlModalTab}
+        initialImportText={curlImportText}
+        onClose={() => {
+          setShowCurl(false);
+          setCurlImportText('');
+          setCurlModalTab('copy');
+        }}
+        onImport={(parsed) => {
+          setDraft((d) => ({
+            ...d,
+            method: parsed.method,
+            url: parsed.url,
+            params: parsed.params,
+            headers: parsed.headers,
+            auth: parsed.auth,
+            body: parsed.body,
+            name: d.name === 'Untitled request' || !d.name ? 'From cURL' : d.name,
+          }));
+          setCenterTab('request');
+          setResult(null);
+          setError('');
+        }}
+      />
       <PromptModal
         open={!!promptDialog}
         title={
