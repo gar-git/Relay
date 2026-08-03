@@ -1,4 +1,5 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import type { HttpMethod } from '../lib/types';
 import { METHOD_COLORS } from '../lib/utils';
 
@@ -12,12 +13,35 @@ interface Props {
 
 export function MethodSelect({ value, onChange, disabled }: Props) {
   const [open, setOpen] = useState(false);
+  const [menuPos, setMenuPos] = useState({ top: 0, left: 0, minWidth: 120 });
   const rootRef = useRef<HTMLDivElement>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
+
+  useLayoutEffect(() => {
+    if (!open || !rootRef.current) return;
+    const update = () => {
+      const rect = rootRef.current!.getBoundingClientRect();
+      setMenuPos({
+        top: rect.bottom + 4,
+        left: rect.left,
+        minWidth: Math.max(120, rect.width),
+      });
+    };
+    update();
+    window.addEventListener('resize', update);
+    window.addEventListener('scroll', update, true);
+    return () => {
+      window.removeEventListener('resize', update);
+      window.removeEventListener('scroll', update, true);
+    };
+  }, [open]);
 
   useEffect(() => {
     if (!open) return;
     const onDown = (e: MouseEvent) => {
-      if (rootRef.current && !rootRef.current.contains(e.target as Node)) setOpen(false);
+      const t = e.target as Node;
+      if (rootRef.current?.contains(t) || menuRef.current?.contains(t)) return;
+      setOpen(false);
     };
     const onKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape') setOpen(false);
@@ -44,26 +68,33 @@ export function MethodSelect({ value, onChange, disabled }: Props) {
         <span>{value}</span>
         <span className="method-picker-caret">▾</span>
       </button>
-      {open && (
-        <div className="method-picker-menu" role="listbox">
-          {METHODS.map((m) => (
-            <button
-              key={m}
-              type="button"
-              role="option"
-              aria-selected={m === value}
-              className={`method-picker-option ${m === value ? 'active' : ''}`}
-              style={{ color: METHOD_COLORS[m] }}
-              onClick={() => {
-                onChange(m);
-                setOpen(false);
-              }}
-            >
-              {m}
-            </button>
-          ))}
-        </div>
-      )}
+      {open &&
+        createPortal(
+          <div
+            ref={menuRef}
+            className="method-picker-menu method-picker-menu-portal"
+            role="listbox"
+            style={{ top: menuPos.top, left: menuPos.left, minWidth: menuPos.minWidth }}
+          >
+            {METHODS.map((m) => (
+              <button
+                key={m}
+                type="button"
+                role="option"
+                aria-selected={m === value}
+                className={`method-picker-option ${m === value ? 'active' : ''}`}
+                style={{ color: METHOD_COLORS[m] }}
+                onClick={() => {
+                  onChange(m);
+                  setOpen(false);
+                }}
+              >
+                {m}
+              </button>
+            ))}
+          </div>,
+          document.body,
+        )}
     </div>
   );
 }

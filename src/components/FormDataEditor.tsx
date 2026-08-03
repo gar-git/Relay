@@ -1,3 +1,4 @@
+import { useRef } from 'react';
 import type { KeyValue } from '../lib/types';
 import { newKv } from '../lib/utils';
 
@@ -7,18 +8,43 @@ interface Props {
   readOnly?: boolean;
 }
 
+function newFormRow(): KeyValue {
+  return { ...newKv(), kind: 'text' };
+}
+
 export function FormDataEditor({ rows, onChange, readOnly }: Props) {
+  const placeholderRef = useRef<KeyValue | null>(null);
+  if (rows.length) {
+    placeholderRef.current = null;
+  } else if (!placeholderRef.current) {
+    placeholderRef.current = newFormRow();
+  }
+
+  const list = rows.length ? rows : [placeholderRef.current!];
+
   function update(id: string, patch: Partial<KeyValue>) {
+    if (!rows.length) {
+      const base = placeholderRef.current ?? newFormRow();
+      const next = { ...base, id: base.id, ...patch };
+      placeholderRef.current = next;
+      onChange([next]);
+      return;
+    }
     onChange(rows.map((r) => (r.id === id ? { ...r, ...patch } : r)));
   }
 
   function remove(id: string) {
     const next = rows.filter((r) => r.id !== id);
-    onChange(next.length ? next : [{ ...newKv(), kind: 'text' }]);
+    onChange(next.length ? next : [newFormRow()]);
   }
 
   function add() {
-    onChange([...rows, { ...newKv(), kind: 'text' }]);
+    if (!rows.length) {
+      const first = placeholderRef.current ?? newFormRow();
+      onChange([first, newFormRow()]);
+      return;
+    }
+    onChange([...rows, newFormRow()]);
   }
 
   async function pickFile(id: string) {
@@ -31,8 +57,6 @@ export function FormDataEditor({ rows, onChange, readOnly }: Props) {
       value: file.name,
     });
   }
-
-  const list = rows.length ? rows : [{ ...newKv(), kind: 'text' as const }];
 
   return (
     <div className="kv-editor">

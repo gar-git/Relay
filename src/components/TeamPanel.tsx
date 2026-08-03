@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import type { Environment, KeyValue, Role, WorkspaceMember } from '../lib/types';
 import { MAX_TEAM_SIZE } from '../lib/types';
+import { newKv } from '../lib/utils';
 import { KeyValueEditor } from './KeyValueEditor';
 import { PromptModal } from './PromptModal';
 
@@ -141,7 +142,7 @@ interface EnvProps {
   environments: Environment[];
   activeEnvId: string | null;
   canEdit: boolean;
-  onChange: () => void;
+  onChange: () => void | Promise<void>;
   onClose: () => void;
 }
 
@@ -157,19 +158,49 @@ export function EnvironmentModal({
   const [selectedId, setSelectedId] = useState(activeEnvId || environments[0]?.id || '');
   const selected = environments.find((e) => e.id === selectedId) || null;
   const [name, setName] = useState(selected?.name || '');
-  const [variables, setVariables] = useState<KeyValue[]>(selected?.variables || []);
+  const [variables, setVariables] = useState<KeyValue[]>(() => {
+    const vars = selected?.variables || [];
+    return vars.length ? vars : [newKv()];
+  });
   const [showCreate, setShowCreate] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState('');
+  const [savedOk, setSavedOk] = useState(false);
 
+  // Only re-load from props when switching environments — not after every workspace refresh,
+  // otherwise local edits (and a just-saved form) get wiped mid-interaction.
   useEffect(() => {
     const env = environments.find((e) => e.id === selectedId);
     setName(env?.name || '');
-    setVariables(env?.variables || []);
-  }, [selectedId, environments]);
+    const vars = env?.variables || [];
+    setVariables(vars.length ? vars : [newKv()]);
+    setError('');
+    setSavedOk(false);
+  }, [selectedId]); // eslint-disable-line react-hooks/exhaustive-deps -- intentional
 
   async function save() {
-    if (!selected) return;
-    await window.relay.environments.update(token, selected.id, { name, variables });
-    onChange();
+    if (!selected) {
+      setError('No environment selected');
+      return;
+    }
+    setSaving(true);
+    setError('');
+    setSavedOk(false);
+    try {
+      const cleaned = variables.filter((v) => v.key.trim() || v.value.trim());
+      const updated = await window.relay.environments.update(token, selected.id, {
+        name: name.trim() || selected.name,
+        variables: cleaned,
+      });
+      setName(updated.name);
+      setVariables(updated.variables.length ? updated.variables : [newKv()]);
+      await onChange();
+      setSavedOk(true);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setSaving(false);
+    }
   }
 
   return (
@@ -197,18 +228,34 @@ export function EnvironmentModal({
               <input value={name} disabled={!canEdit} onChange={(e) => setName(e.target.value)} />
             </label>
             <div style={{ marginTop: 10 }}>
-              <KeyValueEditor rows={variables} onChange={setVariables} showSecret readOnly={!canEdit} />
+              <KeyValueEditor
+                rows={variables}
+                onChange={(rows) => {
+                  setVariables(rows);
+                  setSavedOk(false);
+                }}
+                showSecret
+                readOnly={!canEdit}
+              />
             </div>
           </>
         )}
+        {error && <p className="error-text" style={{ marginTop: 10 }}>{error}</p>}
+        {savedOk && !error && <p className="muted" style={{ marginTop: 10, color: 'var(--ok)' }}>Saved</p>}
         <div className="actions">
           {canEdit && selected && (
             <button
               type="button"
               className="danger"
               onClick={async () => {
-                await window.relay.environments.delete(token, selected.id);
-                onChange();
+                try {
+                  await window.relay.environments.delete(token, selected.id);
+                  await onChange();
+                  const remaining = environments.filter((e) => e.id !== selected.id);
+                  setSelectedId(remaining[0]?.id || '');
+                } catch (e) {
+                  setError(e instanceof Error ? e.message : String(e));
+                }
               }}
             >
               Delete
@@ -219,8 +266,8 @@ export function EnvironmentModal({
             Cancel
           </button>
           {canEdit && (
-            <button type="button" className="primary" onClick={save}>
-              Save
+            <button type="button" className="primary" onClick={() => void save()} disabled={saving || !selected}>
+              {saving ? 'Saving…' : 'Save'}
             </button>
           )}
         </div>
@@ -232,9 +279,15 @@ export function EnvironmentModal({
         onCancel={() => setShowCreate(false)}
         onConfirm={async (n) => {
           setShowCreate(false);
-          const env = await window.relay.environments.create(token, workspaceId, n);
-          onChange();
-          setSelectedId(env.id);
+          try {
+            const env = await window.relay.environments.create(token, workspaceId, n);
+            await onChange();
+            setSelectedId(env.id);
+            setName(env.name);
+            setVariables([newKv()]);
+          } catch (e) {
+            setError(e instanceof Error ? e.message : String(e));
+          }
         }}
       />
     </div>

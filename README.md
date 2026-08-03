@@ -5,9 +5,12 @@ Local-first Postman-style API client for Windows/macOS/Linux. Test APIs, organiz
 ## Features
 
 - Request builder: methods, URL, params, headers, body (JSON/raw/form), auth (Bearer/Basic/API Key)
+- Side-by-side or stacked request/response layout (resizable; panes scale with the window)
+- Search in request and response panels separately (click the search icon, or **Ctrl/Cmd+F** in a panel)
 - Packs & folders with save / duplicate / delete
-- Environments with `{{variable}}` substitution
+- Environments with `{{variable}}` substitution (case-insensitive names)
 - Request history
+- cURL preview/copy from the current request
 - Team workspaces capped at **15 members** (owner / editor / viewer)
 - OpenAPI 3 / Swagger 2 import → pack + docs viewer with Try
 - Import/Export: Relay workspace (`.relay.json`), Postman Collection v2.1, OpenAPI
@@ -37,6 +40,16 @@ This starts Vite + Electron. On first launch, register a local account, then cre
 | `npm run build:dir` | Unpackaged build for local testing |
 | `npm run typecheck` | TypeScript check |
 
+## Layout
+
+Use the layout controls next to **Save**:
+
+- **Side by side** — request left, response right
+- **Stacked** — request above, response below
+- **Swap** — reverse request/response order
+
+Drag the divider to resize. Sizes are saved as percentages so the layout stays proportional when you resize the window.
+
 ## Team (max 15)
 
 1. Each teammate creates a **local account** on the same machine (or you Export/Import the workspace).
@@ -55,6 +68,9 @@ Use the **Docs / Swagger** tab to:
 
 ## Tips
 
-- Use `{{baseUrl}}` in URLs and define `baseUrl` in your active environment.
+- Select an environment in the toolbar, then open **Env** to define variables (e.g. `baseURL` → `http://localhost:4000`).
+- Use `{{baseURL}}` (or `{{baseUrl}}` — matching is case-insensitive) in the URL, headers, body, and auth fields.
+- If a `{{variable}}` is missing or no environment is selected, Send shows a clear error instead of calling a bad URL.
+- Search: open the search icon in the request or response panel; **Enter** / **Shift+Enter** for next/previous match; **Esc** to close.
 - Viewers can send requests and browse; they cannot edit packs or invite members.
 - HTTP requests are proxied through Electron (no browser CORS limits).

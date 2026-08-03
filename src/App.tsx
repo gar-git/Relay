@@ -14,7 +14,13 @@ import type {
   User,
   Workspace,
 } from './lib/types';
-import { buildCurl, buildSendPayload, newKv, varsFromEnv } from './lib/utils';
+import {
+  buildCurl,
+  buildSendPayload,
+  findUnresolvedVariables,
+  newKv,
+  varsFromEnv,
+} from './lib/utils';
 import { LoginScreen } from './components/LoginScreen';
 import { RequestBuilder } from './components/RequestBuilder';
 import { ResponseViewer } from './components/ResponseViewer';
@@ -28,7 +34,7 @@ import { AppMenuBar } from './components/AppMenuBar';
 import { UserMenu } from './components/UserMenu';
 import {
   SplitPane,
-  usePersistedNumber,
+  usePersistedSplitPercent,
   usePersistedString,
   type EditorLayout,
   type PaneOrder,
@@ -93,9 +99,9 @@ export default function App() {
   const [error, setError] = useState('');
   const [promptDialog, setPromptDialog] = useState<PromptKind | null>(null);
   const [confirmDialog, setConfirmDialog] = useState<ConfirmKind | null>(null);
-  const [sidebarWidth, setSidebarWidth] = usePersistedNumber('relay_sidebar_w', 280);
-  const [editorSideSize, setEditorSideSize] = usePersistedNumber('relay_editor_side', 520);
-  const [editorStackSize, setEditorStackSize] = usePersistedNumber('relay_editor_stack', 360);
+  const [sidebarPct, setSidebarPct] = usePersistedSplitPercent('relay_sidebar_pct', 22);
+  const [editorSidePct, setEditorSidePct] = usePersistedSplitPercent('relay_editor_side_pct', 48);
+  const [editorStackPct, setEditorStackPct] = usePersistedSplitPercent('relay_editor_stack_pct', 42);
   const [editorLayout, setEditorLayout] = usePersistedString<EditorLayout>('relay_editor_layout', 'side');
   const [paneOrder, setPaneOrder] = usePersistedString<PaneOrder>('relay_pane_order', 'request-first');
   const canEdit = myRole === 'owner' || myRole === 'editor';
@@ -212,6 +218,26 @@ export default function App() {
         body: draft.body,
         variables,
       });
+
+      const unresolved = findUnresolvedVariables(payload.url);
+      if (unresolved.length) {
+        const envHint = activeEnv
+          ? `Active environment “${activeEnv.name}” does not define: ${unresolved.map((n) => `{{${n}}}`).join(', ')}`
+          : `No environment selected. Select one in the toolbar, or replace ${unresolved.map((n) => `{{${n}}}`).join(', ')} with a real URL.`;
+        setError(envHint);
+        setResult({
+          ok: false,
+          status: 0,
+          statusText: '',
+          headers: {},
+          body: '',
+          durationMs: 0,
+          sizeBytes: 0,
+          error: envHint,
+        });
+        return;
+      }
+
       const res = await window.relay.http.send(payload);
       setResult(res);
       await window.relay.history.add(token, workspaceId, {
@@ -541,10 +567,11 @@ export default function App() {
       <div className="main-grid">
         <SplitPane
           direction="horizontal"
-          size={sidebarWidth}
-          onSizeChange={setSidebarWidth}
-          minFirst={180}
-          minSecond={420}
+          unit="percent"
+          size={sidebarPct}
+          onSizeChange={setSidebarPct}
+          minFirst={160}
+          minSecond={280}
           first={
         <aside className="sidebar">
           <div className="sidebar-tabs">
@@ -610,7 +637,7 @@ export default function App() {
           }
           second={
         <div className="workspace-area">
-          <div className="row" style={{ padding: '8px 12px', borderBottom: '1px solid var(--border)', gap: 10 }}>
+          <div className="workspace-toolbar row" style={{ padding: '8px 12px', borderBottom: '1px solid var(--border)', gap: 10 }}>
             <div className="panel-tabs" style={{ border: 'none', padding: 0, background: 'transparent' }}>
               <button type="button" className={centerTab === 'request' ? 'active' : ''} onClick={() => setCenterTab('request')}>
                 Request
@@ -689,11 +716,13 @@ export default function App() {
             />
           ) : (
             <SplitPane
+              className={editorLayout === 'stack' ? 'editor-stack' : 'editor-side'}
               direction={editorLayout === 'side' ? 'horizontal' : 'vertical'}
-              size={editorLayout === 'side' ? editorSideSize : editorStackSize}
-              onSizeChange={editorLayout === 'side' ? setEditorSideSize : setEditorStackSize}
-              minFirst={320}
-              minSecond={180}
+              unit="percent"
+              size={editorLayout === 'side' ? editorSidePct : editorStackPct}
+              onSizeChange={editorLayout === 'side' ? setEditorSidePct : setEditorStackPct}
+              minFirst={160}
+              minSecond={140}
               reversed={paneOrder === 'response-first'}
               first={
                 <RequestBuilder

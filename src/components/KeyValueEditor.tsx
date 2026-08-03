@@ -1,3 +1,4 @@
+import { useRef } from 'react';
 import type { KeyValue } from '../lib/types';
 import { newKv } from '../lib/utils';
 
@@ -9,7 +10,24 @@ interface Props {
 }
 
 export function KeyValueEditor({ rows, onChange, showSecret, readOnly }: Props) {
+  // Keep a stable placeholder row when `rows` is empty so typing isn't lost each render.
+  const placeholderRef = useRef<KeyValue | null>(null);
+  if (rows.length) {
+    placeholderRef.current = null;
+  } else if (!placeholderRef.current) {
+    placeholderRef.current = newKv();
+  }
+
+  const list = rows.length ? rows : [placeholderRef.current!];
+
   function update(id: string, patch: Partial<KeyValue>) {
+    if (!rows.length) {
+      const base = placeholderRef.current ?? newKv();
+      const next = { ...base, id: base.id, ...patch };
+      placeholderRef.current = next;
+      onChange([next]);
+      return;
+    }
     onChange(rows.map((r) => (r.id === id ? { ...r, ...patch } : r)));
   }
 
@@ -19,10 +37,13 @@ export function KeyValueEditor({ rows, onChange, showSecret, readOnly }: Props) 
   }
 
   function add() {
+    if (!rows.length) {
+      const first = placeholderRef.current ?? newKv();
+      onChange([first, newKv()]);
+      return;
+    }
     onChange([...rows, newKv()]);
   }
-
-  const list = rows.length ? rows : [newKv()];
 
   return (
     <div className="kv-editor">

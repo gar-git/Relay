@@ -1,10 +1,12 @@
-import { useMemo, useState, type CSSProperties } from 'react';
+import { useEffect, useMemo, useRef, useState, type CSSProperties, type Ref } from 'react';
 import type { AuthConfig, BodyType, HttpMethod, KeyValue, RequestBody } from '../lib/types';
 import { parseBulkRows, serializeBulkRows } from '../lib/bulkEdit';
+import { findMatches } from '../lib/findMatches';
 import { computeHiddenHeaders, newKv } from '../lib/utils';
 import { FormDataEditor } from './FormDataEditor';
 import { KeyValueEditor } from './KeyValueEditor';
 import { MethodSelect } from './MethodSelect';
+import { PanelSearch } from './PanelSearch';
 
 interface Props {
   method: HttpMethod;
@@ -38,6 +40,16 @@ const bulkBtnStyle: CSSProperties = {
   cursor: 'pointer',
 };
 
+function rowMatches(row: KeyValue, query: string): boolean {
+  const q = query.trim().toLowerCase();
+  if (!q) return true;
+  return (
+    row.key.toLowerCase().includes(q) ||
+    row.value.toLowerCase().includes(q) ||
+    (row.filePath || '').toLowerCase().includes(q)
+  );
+}
+
 function BulkToolbar(props: {
   bulk: boolean;
   onToggle: () => void;
@@ -68,10 +80,12 @@ function BulkTextArea(props: {
   readOnly?: boolean;
   placeholder: string;
   hint: string;
+  textareaRef?: Ref<HTMLTextAreaElement>;
 }) {
   return (
     <>
       <textarea
+        ref={props.textareaRef}
         rows={14}
         value={props.value}
         readOnly={props.readOnly}
@@ -101,6 +115,11 @@ export function RequestBuilder(props: Props) {
   const [formBulkText, setFormBulkText] = useState('');
   const [urlBulk, setUrlBulk] = useState(false);
   const [urlBulkText, setUrlBulkText] = useState('');
+  const [query, setQuery] = useState('');
+  const [activeIndex, setActiveIndex] = useState(0);
+  const [focusSignal, setFocusSignal] = useState(0);
+  const panelRef = useRef<HTMLDivElement>(null);
+  const bodyRef = useRef<HTMLTextAreaElement>(null);
 
   const hiddenHeaders = useMemo(
     () =>
@@ -115,6 +134,129 @@ export function RequestBuilder(props: Props) {
   const headerCount =
     props.headers.filter((h) => h.enabled && h.key).length +
     (showHiddenHeaders ? hiddenHeaders.length : 0);
+
+  const bodySearchText = useMemo(() => {
+    if (tab === 'body' && (props.body.type === 'json' || props.body.type === 'raw')) {
+      return props.body.raw || '';
+    }
+    if (tab === 'body' && props.body.type === 'urlencoded' && urlBulk) return urlBulkText;
+    if (tab === 'body' && props.body.type === 'formdata' && formBulk) return formBulkText;
+    if (tab === 'params' && paramsBulk) return paramsBulkText;
+    return '';
+  }, [tab, props.body, urlBulk, urlBulkText, formBulk, formBulkText, paramsBulk, paramsBulkText]);
+
+  const textMatches = useMemo(() => findMatches(bodySearchText, query), [bodySearchText, query]);
+
+  const filteredParams = useMemo(
+    () => props.params.filter((r) => rowMatches(r, query)),
+    [props.params, query],
+  );
+  const filteredHeaders = useMemo(
+    () => props.headers.filter((r) => rowMatches(r, query)),
+    [props.headers, query],
+  );
+  const filteredHidden = useMemo(
+    () =>
+      hiddenHeaders.filter((h) => {
+        const q = query.trim().toLowerCase();
+        if (!q) return true;
+        return h.key.toLowerCase().includes(q) || h.value.toLowerCase().includes(q);
+      }),
+    [hiddenHeaders, query],
+  );
+  const filteredUrlEnc = useMemo(
+    () => (props.body.urlencoded || []).filter((r) => rowMatches(r, query)),
+    [props.body.urlencoded, query],
+  );
+  const filteredForm = useMemo(
+    () => (props.body.formData || []).filter((r) => rowMatches(r, query)),
+    [props.body.formData, query],
+  );
+
+  const isTextSearch =
+    (tab === 'body' && (props.body.type === 'json' || props.body.type === 'raw')) ||
+    (tab === 'body' && props.body.type === 'urlencoded' && urlBulk) ||
+    (tab === 'body' && props.body.type === 'formdata' && formBulk) ||
+    (tab === 'params' && paramsBulk);
+
+  const rowMatchCount = useMemo(() => {
+    if (!query.trim()) return 0;
+    if (tab === 'params' && !paramsBulk) return filteredParams.length;
+    if (tab === 'headers') return filteredHeaders.length + filteredHidden.length;
+    if (tab === 'body' && props.body.type === 'urlencoded' && !urlBulk) return filteredUrlEnc.length;
+    if (tab === 'body' && props.body.type === 'formdata' && !formBulk) return filteredForm.length;
+    if (tab === 'auth') {
+      const blob = [
+        props.auth.type,
+        props.auth.bearerToken,
+        props.auth.basicUsername,
+        props.auth.basicPassword,
+        props.auth.apiKeyKey,
+        props.auth.apiKeyValue,
+      ]
+        .filter(Boolean)
+        .join('\n');
+      return findMatches(blob, query).length ? 1 : 0;
+    }
+    return 0;
+  }, [
+    query,
+    tab,
+    paramsBulk,
+    filteredParams,
+    filteredHeaders,
+    filteredHidden,
+    props.body.type,
+    urlBulk,
+    formBulk,
+    filteredUrlEnc,
+    filteredForm,
+    props.auth,
+  ]);
+
+  const matchCount = isTextSearch ? textMatches.length : rowMatchCount;
+
+  useEffect(() => {
+    setActiveIndex(0);
+  }, [query, tab, bodySearchText]);
+
+  useEffect(() => {
+    if (!isTextSearch || !query.trim() || !textMatches.length || !bodyRef.current) return;
+    const m = textMatches[activeIndex];
+    if (!m) return;
+    const el = bodyRef.current;
+    el.focus();
+    el.setSelectionRange(m.start, m.end);
+    // Approximate scroll into view for textarea
+    const before = bodySearchText.slice(0, m.start);
+    const line = before.split('\n').length;
+    const lineHeight = 18;
+    el.scrollTop = Math.max(0, (line - 3) * lineHeight);
+  }, [isTextSearch, query, activeIndex, textMatches, bodySearchText]);
+
+  useEffect(() => {
+    const el = panelRef.current;
+    if (!el) return;
+    const onKey = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'f') {
+        e.preventDefault();
+        e.stopPropagation();
+        setFocusSignal((n) => n + 1);
+      }
+    };
+    el.addEventListener('keydown', onKey);
+    return () => el.removeEventListener('keydown', onKey);
+  }, []);
+
+  function goNext() {
+    if (!matchCount) return;
+    setActiveIndex((i) => (i + 1) % matchCount);
+  }
+
+  function goPrev() {
+    if (!matchCount) return;
+    setActiveIndex((i) => (i - 1 + matchCount) % matchCount);
+  }
 
   function setBodyType(type: BodyType) {
     setFormBulk(false);
@@ -182,9 +324,40 @@ export function RequestBuilder(props: Props) {
     }
   }
 
+  /** When filtering KV rows, map edits on the filtered view back onto the full list. */
+  function patchFiltered(
+    full: KeyValue[],
+    filtered: KeyValue[],
+    nextFiltered: KeyValue[],
+    onChange: (rows: KeyValue[]) => void,
+  ) {
+    if (!query.trim()) {
+      onChange(nextFiltered);
+      return;
+    }
+    const filteredIds = new Set(filtered.map((r) => r.id));
+    const result: KeyValue[] = [];
+    let fi = 0;
+    for (const row of full) {
+      if (!filteredIds.has(row.id)) {
+        result.push(row);
+        continue;
+      }
+      if (fi < nextFiltered.length) {
+        result.push(nextFiltered[fi]);
+        fi += 1;
+      }
+    }
+    while (fi < nextFiltered.length) {
+      result.push(nextFiltered[fi]);
+      fi += 1;
+    }
+    onChange(result.length ? result : [newKv()]);
+  }
+
   return (
-    <div className="panel">
-      <div className="request-row" style={{ borderBottom: 'none', padding: '0 0 10px' }}>
+    <div className="panel" ref={panelRef} tabIndex={-1}>
+      <div className="request-row" style={{ borderBottom: 'none', paddingBottom: 10 }}>
         <MethodSelect value={props.method} onChange={props.onMethod} disabled={props.readOnly} />
         <input
           className="url-input"
@@ -196,12 +369,14 @@ export function RequestBuilder(props: Props) {
             if (e.key === 'Enter') props.onSend();
           }}
         />
-        <button type="button" onClick={props.onShowCurl} disabled={!props.url} title="View / copy as cURL">
-          cURL
-        </button>
-        <button type="button" className="primary" onClick={props.onSend} disabled={props.sending || !props.url}>
-          {props.sending ? 'Sending…' : 'Send'}
-        </button>
+        <div className="request-row-actions">
+          <button type="button" onClick={props.onShowCurl} disabled={!props.url} title="View / copy as cURL">
+            cURL
+          </button>
+          <button type="button" className="primary" onClick={props.onSend} disabled={props.sending || !props.url}>
+            {props.sending ? 'Sending…' : 'Send'}
+          </button>
+        </div>
       </div>
 
       <div className="panel-tabs">
@@ -227,9 +402,19 @@ export function RequestBuilder(props: Props) {
             {label}
           </button>
         ))}
+        <PanelSearch
+          value={query}
+          onChange={setQuery}
+          matchCount={matchCount}
+          activeIndex={matchCount ? activeIndex : 0}
+          onPrev={goPrev}
+          onNext={goNext}
+          placeholder="Search…"
+          focusSignal={focusSignal}
+        />
       </div>
 
-      <div className="panel-body">
+      <div className="panel-body panel-body-scroll">
         {tab === 'params' && (
           <div>
             <BulkToolbar bulk={paramsBulk} onToggle={toggleParamsBulk} />
@@ -240,11 +425,12 @@ export function RequestBuilder(props: Props) {
                 readOnly={props.readOnly}
                 placeholder={'page:1\nlimit:20'}
                 hint="One parameter per line as key:value"
+                textareaRef={bodyRef}
               />
             ) : (
               <KeyValueEditor
-                rows={props.params}
-                onChange={props.onParams}
+                rows={filteredParams}
+                onChange={(next) => patchFiltered(props.params, filteredParams, next, props.onParams)}
                 readOnly={props.readOnly}
               />
             )}
@@ -265,7 +451,7 @@ export function RequestBuilder(props: Props) {
               </label>
             </div>
 
-            {showHiddenHeaders && hiddenHeaders.length > 0 && (
+            {showHiddenHeaders && filteredHidden.length > 0 && (
               <table className="kv-table hidden-headers-table" style={{ marginBottom: 12 }}>
                 <thead>
                   <tr>
@@ -276,7 +462,7 @@ export function RequestBuilder(props: Props) {
                   </tr>
                 </thead>
                 <tbody>
-                  {hiddenHeaders.map((h) => (
+                  {filteredHidden.map((h) => (
                     <tr key={`${h.source}-${h.key}`} className="hidden-header-row" title={h.description}>
                       <td>
                         <span className="header-lock" title="Auto-generated">
@@ -301,7 +487,11 @@ export function RequestBuilder(props: Props) {
             <div className="section-title" style={{ paddingLeft: 0 }}>
               Your headers
             </div>
-            <KeyValueEditor rows={props.headers} onChange={props.onHeaders} readOnly={props.readOnly} />
+            <KeyValueEditor
+              rows={filteredHeaders}
+              onChange={(next) => patchFiltered(props.headers, filteredHeaders, next, props.onHeaders)}
+              readOnly={props.readOnly}
+            />
           </div>
         )}
 
@@ -411,8 +601,9 @@ export function RequestBuilder(props: Props) {
             </div>
             {(props.body.type === 'json' || props.body.type === 'raw') && (
               <textarea
+                ref={bodyRef}
+                className="request-body-editor"
                 rows={16}
-                style={{ width: '100%' }}
                 value={props.body.raw || ''}
                 disabled={props.readOnly}
                 placeholder={props.body.type === 'json' ? '{\n  "key": "value"\n}' : 'Raw body'}
@@ -429,12 +620,17 @@ export function RequestBuilder(props: Props) {
                     readOnly={props.readOnly}
                     placeholder={'name:Ada\nemail:a@b.com'}
                     hint="One field per line as key:value"
+                    textareaRef={bodyRef}
                   />
                 ) : (
                   <KeyValueEditor
-                    rows={props.body.urlencoded || []}
+                    rows={filteredUrlEnc}
                     readOnly={props.readOnly}
-                    onChange={(urlencoded) => props.onBody({ ...props.body, urlencoded })}
+                    onChange={(urlencoded) =>
+                      patchFiltered(props.body.urlencoded || [], filteredUrlEnc, urlencoded, (next) =>
+                        props.onBody({ ...props.body, urlencoded: next }),
+                      )
+                    }
                   />
                 )}
               </div>
@@ -449,12 +645,17 @@ export function RequestBuilder(props: Props) {
                     readOnly={props.readOnly}
                     placeholder={'name:Ada\navatar:@C:\\path\\to\\file.png'}
                     hint="Text: key:value · File: key:@/full/path"
+                    textareaRef={bodyRef}
                   />
                 ) : (
                   <FormDataEditor
-                    rows={props.body.formData || []}
+                    rows={filteredForm}
                     readOnly={props.readOnly}
-                    onChange={(formData) => props.onBody({ ...props.body, formData })}
+                    onChange={(formData) =>
+                      patchFiltered(props.body.formData || [], filteredForm, formData, (next) =>
+                        props.onBody({ ...props.body, formData: next }),
+                      )
+                    }
                   />
                 )}
               </div>

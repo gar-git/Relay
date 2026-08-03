@@ -40,6 +40,8 @@ html,
 body,
 #root {
   height: 100%;
+  width: 100%;
+  max-width: 100%;
   margin: 0;
   background: var(--bg);
   color: var(--text);
@@ -120,6 +122,9 @@ textarea {
   display: grid;
   grid-template-rows: auto 1fr;
   height: 100%;
+  width: 100%;
+  min-width: 0;
+  overflow: hidden;
 }
 
 .chrome {
@@ -393,7 +398,11 @@ textarea {
   display: flex;
   min-height: 0;
   min-width: 0;
+  width: 100%;
+  max-width: 100%;
   height: 100%;
+  overflow: hidden;
+  flex: 1 1 0%;
 }
 
 .sidebar {
@@ -408,11 +417,55 @@ textarea {
 
 .workspace-area {
   display: grid;
-  grid-template-rows: auto 1fr;
+  grid-template-rows: auto minmax(0, 1fr);
+  grid-template-columns: minmax(0, 1fr);
   min-height: 0;
   min-width: 0;
+  width: 100%;
+  max-width: 100%;
   height: 100%;
-  flex: 1;
+  flex: 1 1 0%;
+  overflow: hidden;
+  box-sizing: border-box;
+}
+
+.workspace-area > .split-pane {
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  justify-self: stretch;
+}
+
+.split-pane.editor-stack .panel,
+.split-pane.editor-stack .split-pane-child,
+.split-pane.editor-side .panel,
+.split-pane.editor-side .split-pane-child {
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+}
+
+.workspace-toolbar {
+  flex-wrap: wrap;
+  min-width: 0;
+  width: 100%;
+  box-sizing: border-box;
+  overflow: hidden;
+}
+
+.workspace-toolbar .spacer {
+  flex: 1 1 8px;
+  min-width: 0;
+}
+
+.workspace-toolbar .muted,
+.workspace-toolbar .chip {
+  flex-shrink: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 160px;
 }
 
 .editor-split {
@@ -420,31 +473,78 @@ textarea {
 }
 
 .split-pane {
-  display: grid;
+  display: flex;
   min-height: 0;
   min-width: 0;
   height: 100%;
   width: 100%;
-  flex: 1;
+  max-width: 100%;
+  flex: 1 1 0%;
+  overflow: hidden;
+  box-sizing: border-box;
+}
+
+.split-pane.split-horizontal {
+  flex-direction: row;
+}
+
+.split-pane.split-vertical {
+  flex-direction: column;
+  width: 100%;
+  max-width: 100%;
+}
+
+.split-pane.split-vertical > .split-pane-child {
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  align-self: stretch;
 }
 
 .split-pane-child {
   min-height: 0;
   min-width: 0;
+  max-width: 100%;
+  max-height: 100%;
   overflow: hidden;
   display: flex;
   flex-direction: column;
+  box-sizing: border-box;
 }
 
-.split-pane-child > .panel {
-  flex: 1;
+.split-pane-child > .panel,
+.split-pane-child > .workspace-area,
+.split-pane-child > .sidebar {
+  flex: 1 1 0%;
   min-height: 0;
+  min-width: 0;
+  width: 100%;
+  max-width: 100%;
+  overflow: hidden;
+  box-sizing: border-box;
+}
+
+.split-pane.split-vertical .panel {
+  width: 100%;
+  max-width: 100%;
+}
+
+.split-pane.split-vertical .panel-body,
+.split-pane.split-vertical .request-row,
+.split-pane.split-vertical .meta-row,
+.split-pane.split-vertical .panel-tabs,
+.split-pane.split-vertical .request-body-editor,
+.split-pane.split-vertical .json-viewer,
+.split-pane.split-vertical .response-body {
+  max-width: 100%;
+  box-sizing: border-box;
 }
 
 .split-handle {
   background: var(--border);
   position: relative;
   z-index: 2;
+  flex: 0 0 5px;
   transition: background 0.12s ease;
 }
 
@@ -455,10 +555,14 @@ textarea {
 
 .split-handle-horizontal {
   cursor: col-resize;
+  width: 5px;
+  align-self: stretch;
 }
 
 .split-handle-vertical {
   cursor: row-resize;
+  height: 5px;
+  align-self: stretch;
 }
 
 .split-handle::after {
@@ -528,13 +632,25 @@ body.is-resizing-vertical * {
   border-bottom: 1px solid var(--border);
   align-items: stretch;
   background: var(--bg-elevated);
+  width: 100%;
+  max-width: 100%;
   min-width: 0;
+  box-sizing: border-box;
   flex-shrink: 0;
   position: relative;
   z-index: 3;
+  overflow: hidden;
 }
 
-.request-row > button {
+.request-row-actions {
+  display: flex;
+  gap: 8px;
+  flex: 0 0 auto;
+  align-items: stretch;
+}
+
+.request-row > button,
+.request-row-actions > button {
   flex-shrink: 0;
   white-space: nowrap;
   padding: 6px 12px;
@@ -590,6 +706,13 @@ body.is-resizing-vertical * {
   box-shadow: var(--shadow);
 }
 
+.method-picker-menu-portal {
+  position: fixed;
+  top: auto;
+  left: auto;
+  z-index: 10000;
+}
+
 .method-picker-option {
   width: 100%;
   display: block;
@@ -609,21 +732,30 @@ body.is-resizing-vertical * {
 }
 
 .url-input {
-  flex: 0 1 1050px;
-  width: 1050px;
-  max-width: 1050px;
+  /* Prefer up to ~1050px when space allows; always shrink so cURL/Send stay on-screen */
+  flex: 1 1 0%;
+  width: 0;
   min-width: 0;
+  max-width: min(1050px, 100%);
+  overflow: hidden;
+  text-overflow: ellipsis;
   font-family: var(--mono);
   font-size: 12px;
   padding: 6px 8px;
+  box-sizing: border-box;
 }
 
 .panel {
   display: flex;
   flex-direction: column;
   min-height: 0;
+  min-width: 0;
+  width: 100%;
+  max-width: 100%;
   height: 100%;
   border-right: none;
+  overflow: hidden;
+  box-sizing: border-box;
 }
 
 .panel-tabs {
@@ -633,14 +765,20 @@ body.is-resizing-vertical * {
   padding: 0 8px;
   border-bottom: 1px solid var(--border);
   background: var(--bg-panel);
-  overflow: visible;
+  overflow: hidden;
   flex-wrap: wrap;
   min-height: 40px;
+  min-width: 0;
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
+  flex-shrink: 0;
+  position: relative;
 }
 
 .panel-tabs .spacer {
-  flex: 1 1 8px;
-  min-width: 8px;
+  flex: 1 1 0%;
+  min-width: 0;
 }
 
 .panel-tabs .bulk-edit-toggle {
@@ -697,7 +835,13 @@ body.is-resizing-vertical * {
   min-height: 0;
   min-width: 0;
   width: 100%;
+  max-width: 100%;
   box-sizing: border-box;
+}
+
+.panel-body-scroll {
+  overflow: auto;
+  overscroll-behavior: contain;
 }
 
 .panel-body input[type='text'],
@@ -706,6 +850,125 @@ body.is-resizing-vertical * {
 .panel-body textarea {
   min-width: 0;
   max-width: 100%;
+}
+
+.request-body-editor {
+  display: block;
+  width: 100%;
+  min-width: 0;
+  min-height: 220px;
+  max-width: min(1100px, 100%);
+  box-sizing: border-box;
+  font-family: var(--mono);
+  font-size: 12px;
+  line-height: 1.5;
+  resize: vertical;
+  overflow-x: auto;
+  overflow-wrap: anywhere;
+}
+
+.panel-search-slot {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 4;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+}
+
+.panel-search-slot > * {
+  pointer-events: auto;
+}
+
+.panel-search-icon-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  padding: 0 !important;
+  border-radius: var(--radius);
+  color: var(--muted);
+  border: 1px solid transparent;
+  background: transparent;
+}
+
+.panel-search-icon-btn:hover {
+  color: var(--text);
+  background: var(--bg-hover);
+  border-color: var(--border);
+}
+
+.panel-search {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+  margin: 0;
+}
+
+.panel-search-expanded {
+  flex: 0 1 auto;
+  width: min(280px, 56vw);
+  max-width: min(280px, calc(100vw - 48px));
+  padding: 3px 6px;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+}
+
+.panel-search-glyph {
+  flex: 0 0 auto;
+  color: var(--muted);
+}
+
+.panel-search-input {
+  flex: 1 1 auto;
+  min-width: 0;
+  width: 100%;
+  font-size: 12px;
+  padding: 4px 6px;
+  background: transparent;
+  border: none;
+  border-radius: 0;
+  box-shadow: none;
+}
+
+.panel-search-input:focus {
+  border: none;
+  outline: none;
+}
+
+.panel-search-count {
+  flex: 0 0 auto;
+  min-width: 2.2em;
+  text-align: center;
+  font-size: 11px;
+  font-family: var(--mono);
+  color: var(--muted);
+}
+
+.panel-search-nav {
+  flex: 0 0 auto;
+  padding: 2px 6px !important;
+  min-width: 22px;
+  line-height: 1;
+}
+
+mark.search-hit {
+  background: rgba(201, 133, 18, 0.45);
+  color: inherit;
+  border-radius: 2px;
+  padding: 0;
+}
+
+mark.search-hit.active {
+  background: rgba(61, 139, 253, 0.65);
+  outline: 1px solid var(--accent);
 }
 
 /* —— Params / form-data editor —— */
@@ -1035,6 +1298,17 @@ body.is-resizing-vertical * {
   font-family: var(--mono);
   font-size: 12px;
   min-width: 0;
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
+  flex-shrink: 0;
+  overflow: hidden;
+  position: relative;
+}
+
+.meta-row .spacer {
+  flex: 1 1 8px;
+  min-width: 8px;
 }
 
 .meta-row > button {
@@ -1050,6 +1324,9 @@ body.is-resizing-vertical * {
   padding: 0 !important;
   display: flex;
   flex-direction: column;
+  min-height: 0;
+  min-width: 0;
+  overflow: hidden;
 }
 
 .response-body {
@@ -1063,6 +1340,9 @@ body.is-resizing-vertical * {
   overflow: auto;
   flex: 1;
   min-height: 0;
+  width: 100%;
+  max-width: min(1100px, 100%);
+  box-sizing: border-box;
 }
 
 .response-body.wrap {
@@ -1074,12 +1354,16 @@ body.is-resizing-vertical * {
 .json-viewer {
   flex: 1;
   min-height: 0;
+  min-width: 0;
+  width: 100%;
+  max-width: min(1100px, 100%);
   overflow: auto;
   background: var(--bg);
   font-family: var(--mono);
   font-size: 12px;
   line-height: 1.55;
   padding: 8px 0;
+  box-sizing: border-box;
 }
 
 .json-viewer.empty-soft {
@@ -1090,7 +1374,7 @@ body.is-resizing-vertical * {
 .json-row {
   display: flex;
   align-items: flex-start;
-  min-width: min-content;
+  min-width: 0;
 }
 
 .json-line-no {

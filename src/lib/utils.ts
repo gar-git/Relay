@@ -7,14 +7,27 @@ export function newKv(key = '', value = '', enabled = true, secret = false): Key
 
 export function resolveVariables(input: string, vars: Record<string, string>): string {
   return input.replace(/\{\{\s*([a-zA-Z0-9_.-]+)\s*\}\}/g, (_, name: string) => {
-    return vars[name] !== undefined ? vars[name] : `{{${name}}}`;
+    if (Object.prototype.hasOwnProperty.call(vars, name)) return vars[name];
+    const matched = Object.keys(vars).find((k) => k.toLowerCase() === name.toLowerCase());
+    return matched !== undefined ? vars[matched] : `{{${name}}}`;
   });
+}
+
+/** Names still present as {{var}} after resolution. */
+export function findUnresolvedVariables(input: string): string[] {
+  const names: string[] = [];
+  const re = /\{\{\s*([a-zA-Z0-9_.-]+)\s*\}\}/g;
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(input))) {
+    if (!names.includes(m[1])) names.push(m[1]);
+  }
+  return names;
 }
 
 export function varsFromEnv(variables: KeyValue[]): Record<string, string> {
   const out: Record<string, string> = {};
   for (const v of variables) {
-    if (v.enabled && v.key) out[v.key] = v.value;
+    if (v.enabled && v.key.trim()) out[v.key.trim()] = v.value;
   }
   return out;
 }

@@ -35,8 +35,8 @@ async function createWindow() {
   win = new BrowserWindow({
     width: 1400,
     height: 900,
-    minWidth: 1000,
-    minHeight: 680,
+    minWidth: 720,
+    minHeight: 520,
     title: 'Relay',
     backgroundColor: '#0f1218',
     autoHideMenuBar: true,
