@@ -737,6 +737,8 @@ export default function App() {
                   body={draft.body}
                   readOnly={!canEdit && false}
                   sending={sending}
+                  variables={variables}
+                  envName={activeEnv?.name || null}
                   onMethod={(method) => setDraft((d) => ({ ...d, method }))}
                   onUrl={(url) => setDraft((d) => ({ ...d, url }))}
                   onParams={(params) => setDraft((d) => ({ ...d, params }))}

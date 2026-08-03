@@ -8,7 +8,7 @@ import { JsonBodyEditor } from './JsonBodyEditor';
 import { KeyValueEditor } from './KeyValueEditor';
 import { MethodSelect } from './MethodSelect';
 import { PanelSearch } from './PanelSearch';
-import { isProbablyCurl } from '../lib/parseCurl';
+import { UrlInput } from './UrlInput';
 
 interface Props {
   method: HttpMethod;
@@ -28,6 +28,9 @@ interface Props {
   onShowCurl: () => void;
   /** Called when a cURL command is pasted into the URL field */
   onPasteCurl?: (text: string) => void;
+  /** Active environment variable map for URL {{var}} highlighting */
+  variables?: Record<string, string>;
+  envName?: string | null;
   sending: boolean;
 }
 
@@ -363,22 +366,14 @@ export function RequestBuilder(props: Props) {
     <div className="panel" ref={panelRef} tabIndex={-1}>
       <div className="request-row" style={{ borderBottom: 'none', paddingBottom: 10 }}>
         <MethodSelect value={props.method} onChange={props.onMethod} disabled={props.readOnly} />
-        <input
-          className="url-input"
+        <UrlInput
           value={props.url}
           disabled={props.readOnly}
-          placeholder="https://api.example.com/v1/resource, {{baseUrl}}/users, or paste a cURL"
-          onChange={(e) => props.onUrl(e.target.value)}
-          onPaste={(e) => {
-            const text = e.clipboardData.getData('text');
-            if (text && isProbablyCurl(text) && props.onPasteCurl) {
-              e.preventDefault();
-              props.onPasteCurl(text);
-            }
-          }}
-          onKeyDown={(e) => {
-            if (e.key === 'Enter') props.onSend();
-          }}
+          variables={props.variables || {}}
+          envName={props.envName}
+          onChange={props.onUrl}
+          onSend={props.onSend}
+          onPasteCurl={props.onPasteCurl}
         />
         <div className="request-row-actions">
           <button type="button" onClick={props.onShowCurl} title="Copy or import cURL">
