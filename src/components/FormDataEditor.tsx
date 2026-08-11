@@ -1,18 +1,29 @@
 import { useRef } from 'react';
 import type { KeyValue } from '../lib/types';
 import { newKv } from '../lib/utils';
+import { VarAwareInput } from './VarAwareInput';
 
 interface Props {
   rows: KeyValue[];
   onChange: (rows: KeyValue[]) => void;
   readOnly?: boolean;
+  variables?: Record<string, string>;
+  envName?: string | null;
+  onUpdateVariable?: (name: string, value: string) => void | Promise<void>;
 }
 
 function newFormRow(): KeyValue {
   return { ...newKv(), kind: 'text' };
 }
 
-export function FormDataEditor({ rows, onChange, readOnly }: Props) {
+export function FormDataEditor({
+  rows,
+  onChange,
+  readOnly,
+  variables = {},
+  envName,
+  onUpdateVariable,
+}: Props) {
   const placeholderRef = useRef<KeyValue | null>(null);
   if (rows.length) {
     placeholderRef.current = null;
@@ -127,12 +138,17 @@ export function FormDataEditor({ rows, onChange, readOnly }: Props) {
                       {r.fileName || 'Select Files'}
                     </button>
                   ) : (
-                    <input
-                      type="text"
+                    <VarAwareInput
                       value={r.value}
                       disabled={readOnly}
+                      readOnly={readOnly}
                       placeholder="Value"
-                      onChange={(e) => update(r.id, { value: e.target.value })}
+                      variables={variables}
+                      envName={envName}
+                      onUpdateVariable={onUpdateVariable}
+                      wrapClassName="kv-var-wrap"
+                      inputClassName="kv-var-input"
+                      onChange={(value) => update(r.id, { value })}
                     />
                   )}
                 </td>

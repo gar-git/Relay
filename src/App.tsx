@@ -265,6 +265,36 @@ export default function App() {
     setPromptDialog({ type: 'save-request' });
   }
 
+  async function updateEnvVariable(name: string, value: string) {
+    if (!token || !canEdit || !activeEnvId) return;
+    const env = environments.find((e) => e.id === activeEnvId);
+    if (!env) return;
+    const vars = env.variables.length ? env.variables.map((v) => ({ ...v })) : [];
+    const idx = vars.findIndex((v) => v.key.toLowerCase() === name.toLowerCase());
+    if (idx >= 0) {
+      vars[idx] = { ...vars[idx], value };
+    } else {
+      vars.push(newKv(name, value));
+    }
+    const cleaned = vars.filter((v) => v.key.trim() || v.value.trim());
+    setEnvironments((prev) => prev.map((e) => (e.id === env.id ? { ...e, variables: cleaned } : e)));
+    await window.relay.environments.update(token, env.id, {
+      name: env.name,
+      variables: cleaned,
+    });
+    await refreshWorkspace();
+  }
+
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (!(e.ctrlKey || e.metaKey) || e.key.toLowerCase() !== 's') return;
+      e.preventDefault();
+      void saveRequest();
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [token, canEdit, draft.id, draft.name]);
+
   async function handlePromptConfirm(value: string) {
     if (!token || !promptDialog) return;
     const kind = promptDialog;
@@ -739,6 +769,7 @@ export default function App() {
                   sending={sending}
                   variables={variables}
                   envName={activeEnv?.name || null}
+                  onUpdateVariable={updateEnvVariable}
                   onMethod={(method) => setDraft((d) => ({ ...d, method }))}
                   onUrl={(url) => setDraft((d) => ({ ...d, url }))}
                   onParams={(params) => setDraft((d) => ({ ...d, params }))}

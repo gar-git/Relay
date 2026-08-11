@@ -31,6 +31,7 @@ interface Props {
   /** Active environment variable map for URL {{var}} highlighting */
   variables?: Record<string, string>;
   envName?: string | null;
+  onUpdateVariable?: (name: string, value: string) => void | Promise<void>;
   sending: boolean;
 }
 
@@ -250,6 +251,26 @@ export function RequestBuilder(props: Props) {
         e.stopPropagation();
         setFocusSignal((n) => n + 1);
       }
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'a') {
+        const ae = document.activeElement;
+        const panel = panelRef.current;
+        if (!panel) return;
+        if (ae && panel.contains(ae)) {
+          // If an actual form control (or editable content) is focused, let native Ctrl+A work there.
+          const t = ae as HTMLElement;
+          const tag = t.tagName?.toLowerCase();
+          const isTextControl = tag === 'input' || tag === 'textarea' || tag === 'select' || t.isContentEditable;
+          if (isTextControl) return;
+        }
+        e.preventDefault();
+        const target = panel.querySelector('.panel-body');
+        if (!target) return;
+        const sel = window.getSelection();
+        sel?.removeAllRanges();
+        const range = document.createRange();
+        range.selectNodeContents(target);
+        sel?.addRange(range);
+      }
     };
     el.addEventListener('keydown', onKey);
     return () => el.removeEventListener('keydown', onKey);
@@ -363,7 +384,20 @@ export function RequestBuilder(props: Props) {
   }
 
   return (
-    <div className="panel" ref={panelRef} tabIndex={-1}>
+    <div
+      className="panel"
+      ref={panelRef}
+      tabIndex={0}
+      onMouseDown={(e) => {
+        // Keep native focus/selection behavior for inputs/textarea/select/contentEditable.
+        const t = e.target as HTMLElement | null;
+        if (!t) return;
+        const tag = t.tagName?.toLowerCase();
+        const isTextControl = tag === 'input' || tag === 'textarea' || tag === 'select' || t.isContentEditable;
+        if (isTextControl) return;
+        panelRef.current?.focus();
+      }}
+    >
       <div className="request-row" style={{ borderBottom: 'none', paddingBottom: 10 }}>
         <MethodSelect value={props.method} onChange={props.onMethod} disabled={props.readOnly} />
         <UrlInput
@@ -371,6 +405,7 @@ export function RequestBuilder(props: Props) {
           disabled={props.readOnly}
           variables={props.variables || {}}
           envName={props.envName}
+          onUpdateVariable={props.onUpdateVariable}
           onChange={props.onUrl}
           onSend={props.onSend}
           onPasteCurl={props.onPasteCurl}
@@ -438,6 +473,9 @@ export function RequestBuilder(props: Props) {
                 rows={filteredParams}
                 onChange={(next) => patchFiltered(props.params, filteredParams, next, props.onParams)}
                 readOnly={props.readOnly}
+                variables={props.variables || {}}
+                envName={props.envName}
+                onUpdateVariable={props.onUpdateVariable}
               />
             )}
           </div>
@@ -497,6 +535,9 @@ export function RequestBuilder(props: Props) {
               rows={filteredHeaders}
               onChange={(next) => patchFiltered(props.headers, filteredHeaders, next, props.onHeaders)}
               readOnly={props.readOnly}
+              variables={props.variables || {}}
+              envName={props.envName}
+              onUpdateVariable={props.onUpdateVariable}
             />
           </div>
         )}
@@ -675,6 +716,9 @@ export function RequestBuilder(props: Props) {
                   <KeyValueEditor
                     rows={filteredUrlEnc}
                     readOnly={props.readOnly}
+                    variables={props.variables || {}}
+                    envName={props.envName}
+                    onUpdateVariable={props.onUpdateVariable}
                     onChange={(urlencoded) =>
                       patchFiltered(props.body.urlencoded || [], filteredUrlEnc, urlencoded, (next) =>
                         props.onBody({ ...props.body, urlencoded: next }),
@@ -700,6 +744,9 @@ export function RequestBuilder(props: Props) {
                   <FormDataEditor
                     rows={filteredForm}
                     readOnly={props.readOnly}
+                    variables={props.variables || {}}
+                    envName={props.envName}
+                    onUpdateVariable={props.onUpdateVariable}
                     onChange={(formData) =>
                       patchFiltered(props.body.formData || [], filteredForm, formData, (next) =>
                         props.onBody({ ...props.body, formData: next }),

@@ -755,17 +755,14 @@ body.is-resizing-vertical * {
   box-sizing: border-box;
 }
 
-.url-input-wrap {
+.var-input-wrap {
   position: relative;
   display: grid;
-  flex: 1 1 0%;
-  width: 0;
   min-width: 0;
-  max-width: min(1050px, 100%);
 }
 
-.url-input-wrap > .url-input-highlight,
-.url-input-wrap > .url-input-edit {
+.var-input-wrap > .var-input-highlight,
+.var-input-wrap > .var-input-edit {
   grid-area: 1 / 1;
   width: 100%;
   min-width: 0;
@@ -783,12 +780,18 @@ body.is-resizing-vertical * {
   scrollbar-width: none;
 }
 
-.url-input-wrap > .url-input-highlight::-webkit-scrollbar,
-.url-input-wrap > .url-input-edit::-webkit-scrollbar {
+.var-input-wrap > .var-input-highlight::-webkit-scrollbar,
+.var-input-wrap > .var-input-edit::-webkit-scrollbar {
   display: none;
 }
 
-.url-input-highlight {
+.url-input-wrap {
+  flex: 1 1 0%;
+  width: 0;
+  max-width: min(1050px, 100%);
+}
+
+.var-input-highlight {
   display: block;
   pointer-events: none;
   color: var(--text);
@@ -797,7 +800,7 @@ body.is-resizing-vertical * {
   text-overflow: clip;
 }
 
-.url-input-edit {
+.var-input-edit {
   position: relative;
   z-index: 1;
   flex: none !important;
@@ -809,18 +812,64 @@ body.is-resizing-vertical * {
   text-overflow: clip !important;
 }
 
-.url-input-edit::placeholder {
+.var-input-edit::placeholder {
   color: var(--muted);
 }
 
-.url-input-edit::selection {
+.var-input-edit::selection {
   background: rgba(61, 139, 253, 0.35);
   color: transparent;
 }
 
-.url-input-edit:focus {
+.var-input-edit:focus {
   border-color: var(--accent);
   outline: none;
+}
+
+.kv-var-wrap {
+  width: 100%;
+  max-width: 280px;
+  border: 1px solid transparent;
+  border-radius: 4px;
+}
+
+.kv-var-wrap > .var-input-highlight,
+.kv-var-wrap > .var-input-edit {
+  border: none !important;
+  background: transparent !important;
+  padding: 6px 8px;
+  border-radius: 4px;
+}
+
+/* Keep edit layer transparent so {{var}} chips in the highlight stay visible */
+.kv-edit-table .kv-col-value .kv-var-wrap > .var-input-highlight {
+  background: transparent !important;
+  color: var(--text);
+  z-index: 0;
+}
+
+.kv-edit-table .kv-col-value .kv-var-wrap > .var-input-edit,
+.kv-edit-table .kv-col-value .kv-var-wrap > .var-input-edit:hover:not(:disabled),
+.kv-edit-table .kv-col-value .kv-var-wrap > .var-input-edit:focus {
+  background: transparent !important;
+  color: transparent !important;
+  caret-color: var(--text);
+  border: none !important;
+  box-shadow: none !important;
+}
+
+.kv-edit-table .kv-col-value .kv-var-wrap:hover {
+  border-color: var(--border);
+  background: var(--bg-elevated);
+}
+
+.kv-edit-table .kv-col-value .kv-var-wrap:focus-within {
+  border-color: var(--accent);
+  background: var(--bg-elevated);
+}
+
+.kv-edit-table .kv-col-value .kv-var-wrap .url-var {
+  color: var(--kv-key);
 }
 
 .url-plain {
@@ -843,14 +892,24 @@ body.is-resizing-vertical * {
 .url-var-tooltip {
   position: fixed;
   z-index: 10000;
-  min-width: 140px;
-  max-width: 320px;
-  padding: 8px 10px;
+  min-width: 180px;
+  max-width: 360px;
+  padding: 10px 12px;
+  /* Invisible hit area above the tip so the cursor can travel from the field */
   background: #1a2030;
   border: 1px solid var(--border);
   border-radius: 8px;
   box-shadow: var(--shadow);
   pointer-events: auto;
+}
+
+.url-var-tooltip::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: -12px;
+  height: 12px;
 }
 
 .url-var-tooltip-label {
@@ -871,6 +930,27 @@ body.is-resizing-vertical * {
   border-radius: 5px;
   padding: 6px 8px;
   word-break: break-all;
+}
+
+.url-var-tooltip-input {
+  display: block;
+  width: 100%;
+  box-sizing: border-box;
+  color: var(--text) !important;
+  caret-color: var(--text);
+  background: var(--bg) !important;
+  cursor: text;
+}
+
+.url-var-tooltip-input:focus {
+  border-color: var(--accent);
+  outline: none;
+}
+
+.url-var-tooltip-hint {
+  margin: 6px 0 0;
+  font-size: 10px;
+  color: var(--muted);
 }
 
 .url-var-tooltip-value.is-missing {

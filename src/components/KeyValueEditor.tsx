@@ -1,15 +1,27 @@
 import { useRef } from 'react';
 import type { KeyValue } from '../lib/types';
 import { newKv } from '../lib/utils';
+import { VarAwareInput } from './VarAwareInput';
 
 interface Props {
   rows: KeyValue[];
   onChange: (rows: KeyValue[]) => void;
   showSecret?: boolean;
   readOnly?: boolean;
+  variables?: Record<string, string>;
+  envName?: string | null;
+  onUpdateVariable?: (name: string, value: string) => void | Promise<void>;
 }
 
-export function KeyValueEditor({ rows, onChange, showSecret, readOnly }: Props) {
+export function KeyValueEditor({
+  rows,
+  onChange,
+  showSecret,
+  readOnly,
+  variables = {},
+  envName,
+  onUpdateVariable,
+}: Props) {
   // Keep a stable placeholder row when `rows` is empty so typing isn't lost each render.
   const placeholderRef = useRef<KeyValue | null>(null);
   if (rows.length) {
@@ -78,13 +90,28 @@ export function KeyValueEditor({ rows, onChange, showSecret, readOnly }: Props) 
                 />
               </td>
               <td className="kv-col-value">
-                <input
-                  type={r.secret ? 'password' : 'text'}
-                  value={r.value}
-                  disabled={readOnly}
-                  placeholder="Value"
-                  onChange={(e) => update(r.id, { value: e.target.value })}
-                />
+                {r.secret ? (
+                  <input
+                    type="password"
+                    value={r.value}
+                    disabled={readOnly}
+                    placeholder="Value"
+                    onChange={(e) => update(r.id, { value: e.target.value })}
+                  />
+                ) : (
+                  <VarAwareInput
+                    value={r.value}
+                    disabled={readOnly}
+                    readOnly={readOnly}
+                    placeholder="Value"
+                    variables={variables}
+                    envName={envName}
+                    onUpdateVariable={onUpdateVariable}
+                    wrapClassName="kv-var-wrap"
+                    inputClassName="kv-var-input"
+                    onChange={(value) => update(r.id, { value })}
+                  />
+                )}
               </td>
               {showSecret && (
                 <td className="kv-col-secret">

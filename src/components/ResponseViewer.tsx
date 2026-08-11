@@ -78,6 +78,26 @@ export function ResponseViewer({ result, loading }: Props) {
         e.stopPropagation();
         setFocusSignal((n) => n + 1);
       }
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'a') {
+        const ae = document.activeElement;
+        const panel = panelRef.current;
+        if (!panel) return;
+        if (ae && panel.contains(ae)) {
+          // If an actual form control (or editable content) is focused, let native Ctrl+A work there.
+          const t = ae as HTMLElement;
+          const tag = t.tagName?.toLowerCase();
+          const isTextControl = tag === 'input' || tag === 'textarea' || tag === 'select' || t.isContentEditable;
+          if (isTextControl) return;
+        }
+        e.preventDefault();
+        const target = panel.querySelector('.panel-body');
+        if (!target) return;
+        const sel = window.getSelection();
+        sel?.removeAllRanges();
+        const range = document.createRange();
+        range.selectNodeContents(target);
+        sel?.addRange(range);
+      }
     };
     el.addEventListener('keydown', onKey);
     return () => el.removeEventListener('keydown', onKey);
@@ -134,7 +154,19 @@ export function ResponseViewer({ result, loading }: Props) {
 
   if (loading) {
     return (
-      <div className="panel" ref={panelRef} tabIndex={-1}>
+      <div
+        className="panel"
+        ref={panelRef}
+        tabIndex={0}
+        onMouseDown={(e) => {
+          const t = e.target as HTMLElement | null;
+          if (!t) return;
+          const tag = t.tagName?.toLowerCase();
+          const isTextControl = tag === 'input' || tag === 'textarea' || tag === 'select' || t.isContentEditable;
+          if (isTextControl) return;
+          panelRef.current?.focus();
+        }}
+      >
         <div className="meta-row">
           <span>Sending…</span>
           {searchBar}
@@ -146,7 +178,19 @@ export function ResponseViewer({ result, loading }: Props) {
 
   if (!result) {
     return (
-      <div className="panel" ref={panelRef} tabIndex={-1}>
+      <div
+        className="panel"
+        ref={panelRef}
+        tabIndex={0}
+        onMouseDown={(e) => {
+          const t = e.target as HTMLElement | null;
+          if (!t) return;
+          const tag = t.tagName?.toLowerCase();
+          const isTextControl = tag === 'input' || tag === 'textarea' || tag === 'select' || t.isContentEditable;
+          if (isTextControl) return;
+          panelRef.current?.focus();
+        }}
+      >
         <div className="meta-row">
           <span>Response</span>
           {searchBar}
@@ -158,7 +202,19 @@ export function ResponseViewer({ result, loading }: Props) {
 
   if (result.error) {
     return (
-      <div className="panel" ref={panelRef} tabIndex={-1}>
+      <div
+        className="panel"
+        ref={panelRef}
+        tabIndex={0}
+        onMouseDown={(e) => {
+          const t = e.target as HTMLElement | null;
+          if (!t) return;
+          const tag = t.tagName?.toLowerCase();
+          const isTextControl = tag === 'input' || tag === 'textarea' || tag === 'select' || t.isContentEditable;
+          if (isTextControl) return;
+          panelRef.current?.focus();
+        }}
+      >
         <div className="meta-row">
           <span style={{ color: 'var(--err)' }}>Error</span>
           <span>{result.durationMs} ms</span>
@@ -174,7 +230,19 @@ export function ResponseViewer({ result, loading }: Props) {
   }
 
   return (
-    <div className="panel" ref={panelRef} tabIndex={-1}>
+    <div
+      className="panel"
+      ref={panelRef}
+      tabIndex={0}
+      onMouseDown={(e) => {
+        const t = e.target as HTMLElement | null;
+        if (!t) return;
+        const tag = t.tagName?.toLowerCase();
+        const isTextControl = tag === 'input' || tag === 'textarea' || tag === 'select' || t.isContentEditable;
+        if (isTextControl) return;
+        panelRef.current?.focus();
+      }}
+    >
       <div className="meta-row">
         {isJson && (
           <button type="button" className="ghost" onClick={() => setPretty((p) => !p)}>
